@@ -77,7 +77,7 @@
     "@novelia/web-kit": "github:auto-novel/auth#762e9f612175262f15e7acbb1e8bd8dccc1a524c&path:packages/web-kit",
     "@tailwindcss/vite": "^4.3.3",
     "tailwindcss": "^4.3.3",
-    "lindera-wasm-ipadic": "^2.1.0",
+    "lindera-wasm-web": "5.3.0",
     "wanakana": "^5.3.1"
   }
 }

@@ -9,11 +9,23 @@ export interface SourceToken {
   text: string;
 }
 
+export interface RubyTokenization {
+  cost: number;
+  tokens: SourceToken[];
+}
+
 interface RubyToken {
   end: number;
   original: string;
+  ownerEnd: number;
+  ownerStart: number;
   reading: string;
   start: number;
+}
+
+interface RubyCandidateOptions {
+  costThreshold: number;
+  maxReadings: number;
 }
 
 interface TextRange {
@@ -33,7 +45,61 @@ export function buildRubySegments(
   tokens: SourceToken[],
   text: string,
 ): RubySegment[] {
-  const rubyTokens = toKanjiTokens(tokens, text)
+  return buildSegments(toKanjiTokens(tokens, text), text);
+}
+
+export function buildRubySegmentsWithCandidates(
+  tokenizations: RubyTokenization[],
+  text: string,
+  options: RubyCandidateOptions,
+): RubySegment[] {
+  const best = tokenizations[0];
+  if (!best) return [{ text }];
+
+  const bestTokens = toKanjiTokens(best.tokens, text);
+  const readings = bestTokens.map((token) => [toHiragana(token.reading)]);
+  const maxReadings = Math.max(1, options.maxReadings);
+
+  for (const tokenization of tokenizations.slice(1)) {
+    if (tokenization.cost - best.cost > options.costThreshold) break;
+
+    const candidateTokens = toKanjiTokens(tokenization.tokens, text);
+    if (!hasSameRubyTokenShape(bestTokens, candidateTokens)) continue;
+
+    const differences: number[] = [];
+    for (let index = 0; index < bestTokens.length; index += 1) {
+      if (bestTokens[index]!.reading !== candidateTokens[index]!.reading) {
+        differences.push(index);
+      }
+    }
+    if (differences.length !== 1) continue;
+
+    const index = differences[0]!;
+    const reading = toHiragana(candidateTokens[index]!.reading);
+    if (
+      readings[index]!.length < maxReadings &&
+      !readings[index]!.includes(reading)
+    ) {
+      readings[index]!.push(reading);
+    }
+  }
+
+  return buildSegments(
+    bestTokens.map((token, index) => ({
+      ...token,
+      reading: readings[index]!.join('/'),
+    })),
+    text,
+    false,
+  );
+}
+
+function buildSegments(
+  tokens: RubyToken[],
+  text: string,
+  convertReading = true,
+): RubySegment[] {
+  const rubyTokens = tokens
     .filter(
       (token) =>
         token.start >= 0 && token.end <= text.length && token.start < token.end,
@@ -49,13 +115,32 @@ export function buildRubySegments(
     }
     segments.push({
       text: token.original,
-      reading: toHiragana(token.reading),
+      reading: convertReading ? toHiragana(token.reading) : token.reading,
     });
     cursor = token.end;
   }
   if (cursor < text.length) segments.push({ text: text.slice(cursor) });
 
   return segments.length > 0 ? segments : [{ text }];
+}
+
+function hasSameRubyTokenShape(
+  bestTokens: RubyToken[],
+  candidateTokens: RubyToken[],
+): boolean {
+  return (
+    bestTokens.length === candidateTokens.length &&
+    bestTokens.every((best, index) => {
+      const candidate = candidateTokens[index]!;
+      return (
+        best.start === candidate.start &&
+        best.end === candidate.end &&
+        best.ownerStart === candidate.ownerStart &&
+        best.ownerEnd === candidate.ownerEnd &&
+        best.original === candidate.original
+      );
+    })
+  );
 }
 
 function toKanjiTokens(tokens: SourceToken[], text: string): RubyToken[] {
@@ -70,6 +155,8 @@ function toKanjiTokens(tokens: SourceToken[], text: string): RubyToken[] {
     .map<SimplifiedToken>((token) => ({
       start: byteToUtf16(token.byteStart, text),
       end: byteToUtf16(token.byteEnd, text),
+      ownerStart: byteToUtf16(token.byteStart, text),
+      ownerEnd: byteToUtf16(token.byteEnd, text),
       original: token.text,
       reading: token.reading,
     }))
@@ -145,6 +232,8 @@ function splitMixedToken(token: SimplifiedToken): RubyToken[] {
 
   return kanjiMatches.map((match, index) => ({
     original: match[0],
+    ownerStart: token.ownerStart,
+    ownerEnd: token.ownerEnd,
     reading: readingParts[index]!,
     start: token.start + match.index,
     end: token.start + match.index + match[0].length,

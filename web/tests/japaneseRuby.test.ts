@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   buildRubySegments,
+  buildRubySegmentsWithCandidates,
   byteToUtf16,
   type SourceToken,
 } from '../src/pages/reader/ruby/JapaneseRubyTokens';
@@ -65,6 +66,70 @@ describe('Japanese ruby token conversion', () => {
       { text: 'と妖母、対妖用に' },
       { text: '特化', reading: 'とっか' },
       { text: 'した。' },
+    ]);
+  });
+
+  it('shows the closest reading candidate with a slash', () => {
+    const text = '視界が開ける。';
+    const common = tokenAt(text, 0, 2, 'シカイ');
+
+    expect(
+      buildRubySegmentsWithCandidates(
+        [
+          {
+            cost: -107,
+            tokens: [common, tokenAt(text, 3, 6, 'アケル')],
+          },
+          {
+            cost: 71,
+            tokens: [common, tokenAt(text, 3, 6, 'ヒラケル')],
+          },
+        ],
+        text,
+        { costThreshold: 2_000, maxReadings: 2 },
+      ),
+    ).toEqual([
+      { text: '視界', reading: 'しかい' },
+      { text: 'が' },
+      { text: '開', reading: 'あ/ひら' },
+      { text: 'ける。' },
+    ]);
+  });
+
+  it('limits a ruby position to two readings', () => {
+    const text = '端から';
+
+    expect(
+      buildRubySegmentsWithCandidates(
+        [
+          { cost: 0, tokens: [tokenAt(text, 0, 1, 'ハジ')] },
+          { cost: 56, tokens: [tokenAt(text, 0, 1, 'ハシ')] },
+          { cost: 230, tokens: [tokenAt(text, 0, 1, 'タン')] },
+        ],
+        text,
+        { costThreshold: 2_000, maxReadings: 2 },
+      ),
+    ).toEqual([{ text: '端', reading: 'はじ/はし' }, { text: 'から' }]);
+  });
+
+  it('does not mix candidates with different token boundaries', () => {
+    const text = '一人';
+
+    expect(
+      buildRubySegmentsWithCandidates(
+        [
+          {
+            cost: 0,
+            tokens: [tokenAt(text, 0, 1, 'イチ'), tokenAt(text, 1, 2, 'ニン')],
+          },
+          { cost: 100, tokens: [tokenAt(text, 0, 2, 'ヒトリ')] },
+        ],
+        text,
+        { costThreshold: 2_000, maxReadings: 2 },
+      ),
+    ).toEqual([
+      { text: '一', reading: 'いち' },
+      { text: '人', reading: 'にん' },
     ]);
   });
 });
