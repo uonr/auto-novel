@@ -180,6 +180,7 @@ export interface ReaderSetting {
   indentSize?: number;
   enableSourceLabel: boolean;
   foldImages?: boolean;
+  showJapaneseReading: boolean;
   //
   fontWeight: number;
   fontSize: number;
@@ -205,6 +206,7 @@ export namespace ReaderSetting {
     pageTurnMode: 'page',
     enableClickAnimition: true,
     enableSourceLabel: false,
+    showJapaneseReading: false,
     //
     fontWeight: 400,
     fontSize: 14,
@@ -254,6 +256,7 @@ export namespace ReaderSetting {
       }
       delete setting.trimLeadingSpaces;
     }
+    setting.showJapaneseReading ??= false;
     setting.translations = sanitizeTranslators(
       setting.translations,
       defaultTranslationPriority,

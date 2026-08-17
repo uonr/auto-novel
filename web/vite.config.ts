@@ -58,6 +58,9 @@ function setupRemoteAuthProxy(config: UserConfig) {
   proxy['/auth-proxy'] = {
     target: AuthUrl,
     changeOrigin: true,
+    headers: {
+      'accept-encoding': 'identity',
+    },
     rewrite: (path: string) => path.replace(/^\/auth-proxy/, ''),
     selfHandleResponse: true,
     headers: {
@@ -136,7 +139,14 @@ export default defineConfig(({ command, mode }) => {
         treeshake: true,
         output: {
           manualChunks(id) {
-            if (id.includes('web/src')) {
+            if (
+              id.includes('lindera-wasm-ipadic') ||
+              id.includes('/wanakana/')
+            ) {
+              return 'dep-reader-ruby';
+            } else if (id.includes('/pages/reader/ruby/')) {
+              return 'reader-ruby';
+            } else if (id.includes('web/src')) {
               return 'chunk';
             } else if (id.includes('@zip.js')) {
               return 'dep-zip';

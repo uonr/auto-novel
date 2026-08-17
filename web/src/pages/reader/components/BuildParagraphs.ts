@@ -11,6 +11,7 @@ export type ReaderParagraph =
       secondary: boolean;
       needSpeak: boolean;
       missing?: boolean;
+      language: 'jp' | 'zh';
     }
   | { imageUrl: string }
   | undefined;
@@ -28,6 +29,7 @@ export const buildParagraphs = (
     source?: string;
     secondary: boolean;
     needSpeak: boolean;
+    language: 'jp' | 'zh';
   }[] = [];
   const needSpeakJp =
     setting.mode === 'jp' || setting.speakLanguages.includes('jp');
@@ -40,6 +42,7 @@ export const buildParagraphs = (
       source: 'J',
       secondary: false,
       needSpeak: needSpeakJp,
+      language: 'jp',
     });
   } else {
     if (setting.mode === 'jp-zh') {
@@ -48,6 +51,7 @@ export const buildParagraphs = (
         source: 'J',
         secondary: true,
         needSpeak: needSpeakJp,
+        language: 'jp',
       });
     }
 
@@ -73,6 +77,7 @@ export const buildParagraphs = (
             source: t[0].toUpperCase(),
             secondary: false,
             needSpeak: needSpeakZh,
+            language: 'zh',
           });
           break;
         } else {
@@ -82,6 +87,7 @@ export const buildParagraphs = (
             secondary: true,
             needSpeak: true,
             missing: true,
+            language: 'zh',
           });
         }
       }
@@ -98,6 +104,7 @@ export const buildParagraphs = (
             source: t[0].toUpperCase(),
             secondary: false,
             needSpeak: needSpeakZh && i === 0,
+            language: 'zh',
           });
         } else {
           merged.push({
@@ -106,6 +113,7 @@ export const buildParagraphs = (
             secondary: true,
             needSpeak: true,
             missing: true,
+            language: 'zh',
           });
         }
         i++;
@@ -118,6 +126,7 @@ export const buildParagraphs = (
         source: 'J',
         secondary: true,
         needSpeak: needSpeakJp,
+        language: 'jp',
       });
     }
   }
@@ -152,6 +161,7 @@ export const buildParagraphs = (
           source: style.source,
           secondary: style.secondary,
           needSpeak: style.needSpeak,
+          language: style.language,
         });
       }
     }
