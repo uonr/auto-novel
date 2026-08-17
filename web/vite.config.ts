@@ -129,10 +129,7 @@ export default defineConfig(({ mode }) => {
         treeshake: true,
         output: {
           manualChunks(id) {
-            if (
-              id.includes('lindera-wasm-ipadic') ||
-              id.includes('/wanakana/')
-            ) {
+            if (id.includes('lindera-wasm-web') || id.includes('/wanakana/')) {
               return 'dep-reader-ruby';
             } else if (id.includes('/pages/reader/ruby/')) {
               return 'reader-ruby';
