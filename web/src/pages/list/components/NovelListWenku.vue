@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { StarFilled } from '@vicons/material';
+import { CommentOutlined, StarFilled } from '@vicons/material';
 
 import type { WenkuNovelOutlineDto } from '@/model/WenkuNovel';
 
@@ -64,6 +64,13 @@ defineExpose({
           </ImageCard>
         </router-link>
 
+        <CommentCount :site="`wenku-${item.id}`" v-slot="{ count }">
+          <div class="comment-count">
+            <n-icon :size="12" :component="CommentOutlined" />
+            {{ count }}
+          </div>
+        </CommentCount>
+
         <c-select-overlay
           v-if="selectable"
           :checked="selectedIds.includes(item.id)"
@@ -75,3 +82,21 @@ defineExpose({
     </n-grid-item>
   </n-grid>
 </template>
+
+<style scoped>
+.comment-count {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  font-size: 12px;
+  line-height: 1.5;
+  pointer-events: none;
+}
+</style>

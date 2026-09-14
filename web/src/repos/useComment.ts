@@ -11,6 +11,7 @@ import { webKit } from '@/webKit';
 import { cache } from './cache';
 
 const ListKey = 'comment-list';
+const CountKey = 'comment-count';
 const ReplyPageSize = 20;
 const viewerKey = computed(() => webKit.whoami.value.user?.id ?? 'guest');
 const commentsKey = () => [ListKey, viewerKey.value];
@@ -21,9 +22,11 @@ watch(
   viewerKey,
   (_, previous) => {
     viewerRevision++;
-    const filter = { key: [ListKey, previous] };
-    cache.cancelQueries(filter);
-    for (const entry of cache.getEntries(filter)) cache.remove(entry);
+    for (const prefix of [ListKey, CountKey]) {
+      const filter = { key: [prefix, previous] };
+      cache.cancelQueries(filter);
+      for (const entry of cache.getEntries(filter)) cache.remove(entry);
+    }
   },
   { flush: 'sync' },
 );
@@ -95,6 +98,31 @@ const useReplyList = (
       ),
   });
 
+const useCommentCount = (site: MaybeRefOrGetter<string>) =>
+  useQuery({
+    key: () => [CountKey, viewerKey.value, toValue(site)],
+    query: async ({ signal }) => {
+      const page = await CommentApi.getComments(
+        toValue(site),
+        { page: 1, pageSize: 1 },
+        signal,
+      );
+      return page.total;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+const invalidateCounts = (site?: string) => {
+  const filter = {
+    key:
+      site === undefined
+        ? [CountKey, viewerKey.value]
+        : [CountKey, viewerKey.value, site],
+  };
+  cache.cancelQueries(filter);
+  return cache.invalidateQueries(filter);
+};
+
 // Capture the account before awaiting, including switch-away-and-back sessions.
 const mutateComments = async <T>(
   action: () => Promise<T>,
@@ -124,12 +152,13 @@ const mutateComments = async <T>(
       if (page) cache.setQueryData<CommentPage>(entry.key, updatePage(page));
     }
   }
-  await cache.invalidateQueries(filter);
+  await Promise.all([cache.invalidateQueries(filter), invalidateCounts(site)]);
   return result;
 };
 
 export const CommentRepo = {
   useCommentList,
+  useCommentCount,
   useReplyList,
   replyPageSize: ReplyPageSize,
 
@@ -155,7 +184,7 @@ export const CommentRepo = {
       }
     }
     // Server filtering also updates totals, reply counts and pagination.
-    await cache.invalidateQueries(filter);
+    await Promise.all([cache.invalidateQueries(filter), invalidateCounts()]);
   },
 
   createComment: (site: string, request: CreateCommentRequest) =>

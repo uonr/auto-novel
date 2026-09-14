@@ -134,6 +134,13 @@ defineExpose({
         </n-text>
 
         <n-text depth="3">
+          <CommentCount
+            v-if="!simple"
+            :site="`web-${item.providerId}-${item.novelId}`"
+            v-slot="{ count }"
+          >
+            评论 {{ count }} /
+          </CommentCount>
           <template v-if="item.favored">
             <n-text type="warning" v-if="item.favored">
               <n-icon :size="10" :component="StarFilled" />
