@@ -1,5 +1,6 @@
 import vue from '@vitejs/plugin-vue';
 import { execFileSync } from 'node:child_process';
+import type { IncomingMessage } from 'node:http';
 import path from 'path';
 import { ProxyAgent } from 'proxy-agent';
 import Sonda from 'sonda/vite';
@@ -31,6 +32,35 @@ function resolveGitCommit(env: Record<string, string>) {
   }
 }
 
+// 上游 auth 服务下发的 Cookie 浏览器在 localhost 上收不下：Domain 对不上，
+// 本地也不是 https。这里改写成当前 host 能收下的形式，否则本地既登录不上，
+// 也刷新不了 Access Token。
+//
+// Path 一并改成 '/'：登录走 /api/v1/auth/*，刷新走 /auth-proxy/api/v1/auth/*，
+// 两个前缀不同，上游要是给了带路径的 Cookie，刷新时就带不上了。
+function rewriteSetCookieForLocalhost(proxyRes: IncomingMessage) {
+  const setCookie = proxyRes.headers['set-cookie'];
+  if (!setCookie) return;
+  proxyRes.headers['set-cookie'] = setCookie.map((cookie) => {
+    const attrs = cookie.split(';').filter((attr) => {
+      const lower = attr.trim().toLowerCase();
+      return (
+        !lower.startsWith('domain=') &&
+        !lower.startsWith('path=') &&
+        lower !== 'secure'
+      );
+    });
+    return [
+      ...attrs.map((attr) =>
+        attr.trim().toLowerCase().startsWith('samesite=')
+          ? ' SameSite=Lax'
+          : attr,
+      ),
+      ' Path=/',
+    ].join(';');
+  });
+}
+
 function setupRemoteAuthProxy(config: UserConfig) {
   const AuthUrl = 'https://auth.novelia.cc';
   const proxy = config.server!.proxy!;
@@ -43,6 +73,9 @@ function setupRemoteAuthProxy(config: UserConfig) {
   proxy['/api/v1/auth'] = {
     target: AuthUrl,
     changeOrigin: true,
+    configure(proxy) {
+      proxy.on('proxyRes', rewriteSetCookieForLocalhost);
+    },
   };
 
   // 代理静态资源
@@ -61,10 +94,8 @@ function setupRemoteAuthProxy(config: UserConfig) {
     },
     rewrite: (path: string) => path.replace(/^\/auth-proxy/, ''),
     selfHandleResponse: true,
-    headers: {
-      'accept-encoding': 'identity',
-    },
     configure(proxy) {
+      proxy.on('proxyRes', rewriteSetCookieForLocalhost);
       proxy.on('proxyRes', (proxyRes, _req, res) => {
         const chunks: Buffer[] = [];
         proxyRes.on('data', (chunk) => {

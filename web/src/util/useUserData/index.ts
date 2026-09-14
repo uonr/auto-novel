@@ -1,43 +1,10 @@
-import { jwtDecode } from 'jwt-decode';
 import { HTTPError } from 'ky';
 
 import { useLocalStorage } from '../useStorage';
 import { AuthApi } from './api';
+import type { UserData } from './jwt';
+import { parseJwt } from './jwt';
 export { AuthUrl } from './api';
-
-type UserRole = 'admin' | 'trusted' | 'member' | 'restricted' | 'banned';
-
-interface UserProfile {
-  token: string;
-  username: string;
-  role: UserRole;
-  createdAt: number;
-  expiredAt: number;
-  issuedAt: number;
-}
-
-interface UserData {
-  profile?: UserProfile;
-  adminMode: boolean;
-}
-
-function parseJwt(token: string): UserProfile {
-  const { sub, exp, role, iat, crat } = jwtDecode<{
-    sub: string;
-    exp: number;
-    iat: number;
-    role: UserRole;
-    crat: number;
-  }>(token);
-  return {
-    token,
-    username: sub,
-    role,
-    issuedAt: iat,
-    createdAt: crat,
-    expiredAt: exp,
-  };
-}
 
 function useUserDataWithoutAuth(_app: string) {
   const noAuthToken =
